@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -26,37 +27,66 @@ func main() {
 	}
 	defer db.Close()
 
-	// Initialize repository and handler
+	// Initialize repositories
 	todoRepo := repository.NewTodoRepository(db)
+	categoryRepo := repository.NewCategoryRepository(db)
+	blogRepo := repository.NewBlogRepository(db)
+
+	// Initialize handlers
 	todoHandler := handlers.NewTodoHandler(todoRepo)
+	categoryHandler := handlers.NewCategoryHandler(categoryRepo)
+	blogHandler := handlers.NewBlogHandler(blogRepo, categoryRepo)
 
 	// Create Echo instance
 	e := echo.New()
 
 	// Middleware
+	// Global Middleware
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
+	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
+		Timeout: 30 * time.Second,
+	}))
+	e.Use(middleware.RateLimiter(
+		middleware.NewRateLimiterMemoryStore(20),
+	))
 
-	// Routes
+	// API Routes
 	api := e.Group("/api/v1")
-	{
-		todos := api.Group("/todos")
-		todos.GET("", todoHandler.GetTodos)
-		todos.POST("", todoHandler.CreateTodo)
-		todos.GET("/:id", todoHandler.GetTodo)
-		todos.PUT("/:id", todoHandler.UpdateTodo)
-		todos.DELETE("/:id", todoHandler.DeleteTodo)
-	}
 
-	// Health check
-	e.GET("/health", func(c echo.Context) error {
-		return c.String(200, "OK")
+	// _Todo Routes
+	todos := api.Group("/todos")
+	todos.GET("", todoHandler.GetTodos)
+	todos.POST("", todoHandler.CreateTodo)
+	todos.GET("/:id", todoHandler.GetTodo)
+	todos.PUT("/:id", todoHandler.UpdateTodo)
+	todos.DELETE("/:id", todoHandler.DeleteTodo)
+
+	// Category Routes
+	categories := api.Group("/categories")
+	categories.GET("", categoryHandler.GetCategories)
+	categories.POST("", categoryHandler.CreateCategory)
+	categories.GET("/:id", categoryHandler.GetCategory)
+	categories.PUT("/:id", categoryHandler.UpdateCategory)
+	categories.DELETE("/:id", categoryHandler.DeleteCategory)
+
+	// Blog Routes
+	blogs := api.Group("/blogs")
+	blogs.GET("", blogHandler.GetBlogs)
+	blogs.POST("", blogHandler.CreateBlog)
+	blogs.GET("/search", blogHandler.SearchBlogs)
+	blogs.GET("/:id", blogHandler.GetBlog)
+	blogs.PUT("/:id", blogHandler.UpdateBlog)
+	blogs.DELETE("/:id", blogHandler.DeleteBlog)
+	blogs.PATCH("/:id/publish", blogHandler.PublishBlog)
+
+	// Health Check
+	api.GET("/health", func(c echo.Context) error {
+		return c.JSON(200, map[string]string{
+			"status": "OK",
+		})
 	})
 
-	// Start server
-	log.Printf("Server starting on port %s", cfg.Server.Port)
-	if err := e.Start(":" + cfg.Server.Port); err != nil {
-		log.Fatal("Failed to start server:", err)
-	}
+	e.Logger.Fatal(e.Start(":8080"))
 }
