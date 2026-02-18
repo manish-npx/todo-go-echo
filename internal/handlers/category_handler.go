@@ -22,17 +22,22 @@ func NewCategoryHandler(repo repository.CategoryRepository) *CategoryHandler {
 
 // GetCategories handles GET /categories
 func (h *CategoryHandler) GetCategories(c echo.Context) error {
-	categories, err := h.repo.GetAll()
+	ctx := c.Request().Context()
+
+	categories, err := h.repo.GetAll(ctx)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to fetch categories",
 		})
 	}
+
 	return c.JSON(http.StatusOK, categories)
 }
 
 // GetCategory handles GET /categories/:id
 func (h *CategoryHandler) GetCategory(c echo.Context) error {
+	ctx := c.Request().Context()
+
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
@@ -40,7 +45,7 @@ func (h *CategoryHandler) GetCategory(c echo.Context) error {
 		})
 	}
 
-	category, err := h.repo.GetByID(id)
+	category, err := h.repo.GetByID(ctx, id)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to fetch category",
@@ -53,23 +58,13 @@ func (h *CategoryHandler) GetCategory(c echo.Context) error {
 		})
 	}
 
-	// Get blog count for this category
-	blogCount, _ := h.repo.GetBlogCount(id)
-
-	// Create response with additional info
-	response := struct {
-		models.Category
-		BlogCount int `json:"blog_count"`
-	}{
-		Category:  *category,
-		BlogCount: blogCount,
-	}
-
-	return c.JSON(http.StatusOK, response)
+	return c.JSON(http.StatusOK, category)
 }
 
 // CreateCategory handles POST /categories
 func (h *CategoryHandler) CreateCategory(c echo.Context) error {
+	ctx := c.Request().Context()
+
 	var req models.CreateCategoryRequest
 
 	if err := c.Bind(&req); err != nil {
@@ -78,7 +73,7 @@ func (h *CategoryHandler) CreateCategory(c echo.Context) error {
 		})
 	}
 
-	// Validate
+	// Simple validation
 	if req.Name == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": "Category name is required",
@@ -90,9 +85,11 @@ func (h *CategoryHandler) CreateCategory(c echo.Context) error {
 		Description: req.Description,
 	}
 
-	if err := h.repo.Create(category); err != nil {
+	if err := h.repo.Create(ctx, category); err != nil {
+		// Check for duplicate name (PostgreSQL unique violation)
+		// You can add more specific error checking here
 		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to create category",
+			"error": "Failed to create category. Name might already exist.",
 		})
 	}
 
@@ -101,6 +98,8 @@ func (h *CategoryHandler) CreateCategory(c echo.Context) error {
 
 // UpdateCategory handles PUT /categories/:id
 func (h *CategoryHandler) UpdateCategory(c echo.Context) error {
+	ctx := c.Request().Context()
+
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
@@ -109,7 +108,7 @@ func (h *CategoryHandler) UpdateCategory(c echo.Context) error {
 	}
 
 	// Get existing category
-	category, err := h.repo.GetByID(id)
+	category, err := h.repo.GetByID(ctx, id)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to fetch category",
@@ -138,7 +137,7 @@ func (h *CategoryHandler) UpdateCategory(c echo.Context) error {
 		category.Description = *req.Description
 	}
 
-	if err := h.repo.Update(category); err != nil {
+	if err := h.repo.Update(ctx, category); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to update category",
 		})
@@ -149,6 +148,8 @@ func (h *CategoryHandler) UpdateCategory(c echo.Context) error {
 
 // DeleteCategory handles DELETE /categories/:id
 func (h *CategoryHandler) DeleteCategory(c echo.Context) error {
+	ctx := c.Request().Context()
+
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
@@ -156,21 +157,7 @@ func (h *CategoryHandler) DeleteCategory(c echo.Context) error {
 		})
 	}
 
-	// Check if category has blogs
-	count, err := h.repo.GetBlogCount(id)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to check category usage",
-		})
-	}
-
-	if count > 0 {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Cannot delete category with existing blogs. Move or delete the blogs first.",
-		})
-	}
-
-	if err := h.repo.Delete(id); err != nil {
+	if err := h.repo.Delete(ctx, id); err != nil {
 		if err == sql.ErrNoRows {
 			return c.JSON(http.StatusNotFound, map[string]string{
 				"error": "Category not found",

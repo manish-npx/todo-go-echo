@@ -3,17 +3,17 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"todo-go-echo/internal/models"
+
+	"github.com/manish-npx/todo-go-echo/internal/models"
 )
 
 // CategoryRepository defines the interface for category operations
 type CategoryRepository interface {
-	GetAll() ([]models.Category, error)
-	GetByID(id int) (*models.Category, error)
-	Create(category *models.Category) error
-	Update(category *models.Category) error
-	Delete(id int) error
-	GetBlogCount(categoryID int) (int, error)
+	GetAll(ctx context.Context) ([]models.Category, error)
+	GetByID(ctx context.Context, id int) (*models.Category, error)
+	Create(ctx context.Context, category *models.Category) error
+	Update(ctx context.Context, category *models.Category) error
+	Delete(ctx context.Context, id int) error
 }
 
 type categoryRepository struct {
@@ -29,7 +29,7 @@ func NewCategoryRepository(db *sql.DB) CategoryRepository {
 func (r *categoryRepository) GetAll(ctx context.Context) ([]models.Category, error) {
 	query := `SELECT id, name, description, created_at FROM categories ORDER BY name`
 
-	rows, err := r.db.Query(ctx, query)
+	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -44,15 +44,21 @@ func (r *categoryRepository) GetAll(ctx context.Context) ([]models.Category, err
 		}
 		categories = append(categories, cat)
 	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return categories, nil
 }
 
 // GetByID retrieves a category by ID
-func (r *categoryRepository) GetByID(id int) (*models.Category, error) {
+func (r *categoryRepository) GetByID(ctx context.Context, id int) (*models.Category, error) {
 	query := `SELECT id, name, description, created_at FROM categories WHERE id = $1`
 
 	var cat models.Category
-	err := r.db.QueryRow(query, id).Scan(&cat.ID, &cat.Name, &cat.Description, &cat.CreatedAt)
+	err := r.db.QueryRowContext(ctx, query, id).Scan(&cat.ID, &cat.Name, &cat.Description, &cat.CreatedAt)
+
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -63,19 +69,30 @@ func (r *categoryRepository) GetByID(id int) (*models.Category, error) {
 }
 
 // Create inserts a new category
-func (r *categoryRepository) Create(category *models.Category) error {
+func (r *categoryRepository) Create(ctx context.Context, category *models.Category) error {
 	query := `INSERT INTO categories (name, description) VALUES ($1, $2) RETURNING id, created_at`
-	return r.db.QueryRow(query, category.Name, category.Description).Scan(&category.ID, &category.CreatedAt)
-}
 
-// Update modifies an existing category
-func (r *categoryRepository) Update(category *models.Category) error {
-	query := `UPDATE categories SET name = $1, description = $2 WHERE id = $3`
-	result, err := r.db.Exec(query, category.Name, category.Description, category.ID)
+	err := r.db.QueryRowContext(ctx, query, category.Name, category.Description).Scan(&category.ID, &category.CreatedAt)
 	if err != nil {
 		return err
 	}
-	rows, _ := result.RowsAffected()
+	return nil
+}
+
+// Update modifies an existing category
+func (r *categoryRepository) Update(ctx context.Context, category *models.Category) error {
+	query := `UPDATE categories SET name = $1, description = $2 WHERE id = $3`
+
+	result, err := r.db.ExecContext(ctx, query, category.Name, category.Description, category.ID)
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
 	if rows == 0 {
 		return sql.ErrNoRows
 	}
@@ -83,23 +100,21 @@ func (r *categoryRepository) Update(category *models.Category) error {
 }
 
 // Delete removes a category
-func (r *categoryRepository) Delete(id int) error {
+func (r *categoryRepository) Delete(ctx context.Context, id int) error {
 	query := `DELETE FROM categories WHERE id = $1`
-	result, err := r.db.Exec(query, id)
+
+	result, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
 		return err
 	}
-	rows, _ := result.RowsAffected()
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
 	if rows == 0 {
 		return sql.ErrNoRows
 	}
 	return nil
-}
-
-// GetBlogCount returns number of blogs in a category
-func (r *categoryRepository) GetBlogCount(categoryID int) (int, error) {
-	var count int
-	query := `SELECT COUNT(*) FROM blogs WHERE category_id = $1`
-	err := r.db.QueryRow(query, categoryID).Scan(&count)
-	return count, err
 }

@@ -27,6 +27,8 @@ func NewBlogHandler(blogRepo repository.BlogRepository, categoryRepo repository.
 // GetBlogs handles GET /blogs
 // Supports query parameters: ?category=1&author=john&status=published
 func (h *BlogHandler) GetBlogs(c echo.Context) error {
+	ctx := c.Request().Context() // Get context from request
+
 	// Check for query parameters
 	categoryID := c.QueryParam("category")
 	author := c.QueryParam("author")
@@ -39,13 +41,13 @@ func (h *BlogHandler) GetBlogs(c echo.Context) error {
 	switch {
 	case categoryID != "":
 		id, _ := strconv.Atoi(categoryID)
-		blogs, err = h.blogRepo.GetByCategory(id)
+		blogs, err = h.blogRepo.GetByCategory(ctx, id) // Pass context
 	case author != "":
-		blogs, err = h.blogRepo.GetByAuthor(author)
+		blogs, err = h.blogRepo.GetByAuthor(ctx, author) // Pass context
 	case status == "published":
-		blogs, err = h.blogRepo.GetPublished()
+		blogs, err = h.blogRepo.GetPublished(ctx) // Pass context
 	default:
-		blogs, err = h.blogRepo.GetAll()
+		blogs, err = h.blogRepo.GetAll(ctx) // Pass context
 	}
 
 	if err != nil {
@@ -59,6 +61,8 @@ func (h *BlogHandler) GetBlogs(c echo.Context) error {
 
 // GetBlog handles GET /blogs/:id
 func (h *BlogHandler) GetBlog(c echo.Context) error {
+	ctx := c.Request().Context() // Get context from request
+
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
@@ -67,10 +71,10 @@ func (h *BlogHandler) GetBlog(c echo.Context) error {
 	}
 
 	// Increment view count (don't return error to client if this fails)
-	h.blogRepo.IncrementViews(id)
+	go h.blogRepo.IncrementViews(ctx, id) // Pass context (in goroutine)
 
 	// Get blog details
-	blog, err := h.blogRepo.GetByID(id)
+	blog, err := h.blogRepo.GetByID(ctx, id) // Pass context
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to fetch blog",
@@ -88,6 +92,8 @@ func (h *BlogHandler) GetBlog(c echo.Context) error {
 
 // CreateBlog handles POST /blogs
 func (h *BlogHandler) CreateBlog(c echo.Context) error {
+	ctx := c.Request().Context() // Get context from request
+
 	var req models.CreateBlogRequest
 
 	if err := c.Bind(&req); err != nil {
@@ -115,7 +121,7 @@ func (h *BlogHandler) CreateBlog(c echo.Context) error {
 
 	// Validate category if provided
 	if req.CategoryID != nil {
-		category, err := h.categoryRepo.GetByID(*req.CategoryID)
+		category, err := h.categoryRepo.GetByID(ctx, *req.CategoryID) // FIXED: Added ctx
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{
 				"error": "Failed to validate category",
@@ -142,7 +148,7 @@ func (h *BlogHandler) CreateBlog(c echo.Context) error {
 		Status:     status,
 	}
 
-	if err := h.blogRepo.Create(blog); err != nil {
+	if err := h.blogRepo.Create(ctx, blog); err != nil { // Pass context
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to create blog",
 		})
@@ -153,6 +159,8 @@ func (h *BlogHandler) CreateBlog(c echo.Context) error {
 
 // UpdateBlog handles PUT /blogs/:id
 func (h *BlogHandler) UpdateBlog(c echo.Context) error {
+	ctx := c.Request().Context() // Get context from request
+
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
@@ -161,7 +169,7 @@ func (h *BlogHandler) UpdateBlog(c echo.Context) error {
 	}
 
 	// Get existing blog
-	blog, err := h.blogRepo.GetByID(id)
+	blog, err := h.blogRepo.GetByID(ctx, id) // Pass context
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to fetch blog",
@@ -195,7 +203,7 @@ func (h *BlogHandler) UpdateBlog(c echo.Context) error {
 	if req.CategoryID != nil {
 		// Validate category if provided
 		if *req.CategoryID != 0 {
-			category, err := h.categoryRepo.GetByID(*req.CategoryID)
+			category, err := h.categoryRepo.GetByID(ctx, *req.CategoryID) // FIXED: Added ctx
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]string{
 					"error": "Failed to validate category",
@@ -213,7 +221,7 @@ func (h *BlogHandler) UpdateBlog(c echo.Context) error {
 		blog.Status = models.BlogStatus(*req.Status)
 	}
 
-	if err := h.blogRepo.Update(blog); err != nil {
+	if err := h.blogRepo.Update(ctx, blog); err != nil { // Pass context
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to update blog",
 		})
@@ -224,6 +232,8 @@ func (h *BlogHandler) UpdateBlog(c echo.Context) error {
 
 // DeleteBlog handles DELETE /blogs/:id
 func (h *BlogHandler) DeleteBlog(c echo.Context) error {
+	ctx := c.Request().Context() // Get context from request
+
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
@@ -231,7 +241,7 @@ func (h *BlogHandler) DeleteBlog(c echo.Context) error {
 		})
 	}
 
-	if err := h.blogRepo.Delete(id); err != nil {
+	if err := h.blogRepo.Delete(ctx, id); err != nil { // Pass context
 		if err == sql.ErrNoRows {
 			return c.JSON(http.StatusNotFound, map[string]string{
 				"error": "Blog not found",
@@ -249,6 +259,8 @@ func (h *BlogHandler) DeleteBlog(c echo.Context) error {
 
 // SearchBlogs handles GET /blogs/search?q=term
 func (h *BlogHandler) SearchBlogs(c echo.Context) error {
+	ctx := c.Request().Context() // Get context from request
+
 	query := c.QueryParam("q")
 	if query == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{
@@ -256,7 +268,7 @@ func (h *BlogHandler) SearchBlogs(c echo.Context) error {
 		})
 	}
 
-	blogs, err := h.blogRepo.Search(query)
+	blogs, err := h.blogRepo.Search(ctx, query) // Pass context
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to search blogs",
@@ -268,6 +280,8 @@ func (h *BlogHandler) SearchBlogs(c echo.Context) error {
 
 // PublishBlog handles PATCH /blogs/:id/publish
 func (h *BlogHandler) PublishBlog(c echo.Context) error {
+	ctx := c.Request().Context() // Get context from request
+
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
@@ -276,7 +290,7 @@ func (h *BlogHandler) PublishBlog(c echo.Context) error {
 	}
 
 	// Get existing blog
-	blog, err := h.blogRepo.GetByID(id)
+	blog, err := h.blogRepo.GetByID(ctx, id) // Pass context
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to fetch blog",
@@ -292,7 +306,7 @@ func (h *BlogHandler) PublishBlog(c echo.Context) error {
 	// Update status to published
 	blog.Status = models.StatusPublished
 
-	if err := h.blogRepo.Update(blog); err != nil {
+	if err := h.blogRepo.Update(ctx, blog); err != nil { // Pass context
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to publish blog",
 		})
