@@ -58,32 +58,53 @@ This project helps you understand real-world backend structure while learning im
 
 ```
 todo-go-echo/
-├── cmd/                       # 🚀 Executable applications
-│   └── server/                # Our main application
-│       └── main.go            # Entry point - where program starts
 │
-├── config/                    # ⚙️ Configuration files
-│   └── config.yaml            # Database and server settings
+├── cmd/
+│   └── api/
+│       └── main.go              # Application entry point
 │
-├── internal/                  # 📦 Private code (not for external use)
-│   ├── config/                # Configuration handling
-│   │   └── config.go          # Reads YAML into Go structs
-│   │
-│   ├── database/              # Database connection
-│   │   └── postgres.go        # Connects to PostgreSQL
-│   │
-│   ├── models/                # Data structures (structs)
-│   │   └── todo.go            # Todo struct definition
-│   │
-│   ├── repository/            # Database operations
-│   │   └── todo_repository.go # CRUD operations using structs
-│   │
-│   └── handlers/              # HTTP request handlers
-│       └── todo_handler.go    # Process HTTP requests/responses
+├── config/
+│   └── config.yaml              # Application configuration
 │
-├── go.mod                     # Module definition and dependencies
-├── go.sum                     # Dependency checksums
-└── README.md                  # This file
+├── internal/
+│   ├── config/
+│   │   └── config.go            # Config loader logic
+│   │
+│   ├── database/
+│   │   └── postgres.go          # PostgreSQL connection setup
+│   │
+│   ├── handlers/
+│   │   ├── blog_handler.go
+│   │   ├── category_handler.go
+│   │   └── todo_handler.go      # HTTP handlers (controllers)
+│   │
+│   ├── middleware/
+│   │   └── appmiddleware.go     # App-level middleware setup
+│   │
+│   ├── models/
+│   │   ├── blog.go
+│   │   ├── category.go
+│   │   └── todo.go              # Domain models
+│   │
+│   ├── repository/
+│   │   ├── blog_repository.go
+│   │   ├── category_repository.go
+│   │   └── todo_repository.go   # Database access layer
+│   │
+│   ├── routes/
+│   │   └── routes.go            # Route registration
+│   │
+│   ├── server/
+│   │   └── server.go            # Graceful server startup & shutdown
+│   │
+│   └── utils/
+│       ├── errors.go
+│       └── validator.go
+│
+├── go.mod
+├── go.sum
+└── .gitignore
+
 ```
 
 ---
@@ -91,10 +112,16 @@ todo-go-echo/
 # 🧠 Application Flow
 
 Client
-→ HTTP Handler
-→ Repository
-→ PostgreSQL
-→ Response back to client
+
+HTTP Request
+↓
+Routes
+↓
+Handlers (Controllers)
+↓
+Repositories
+↓
+Database
 
 Each layer has a single responsibility.
 
