@@ -11,7 +11,7 @@ import (
 )
 
 func Start(e *echo.Echo, port string) {
-	go func() {
+	go func() { //go routine
 		if err := e.Start(":" + port); err != nil && err != http.ErrServerClosed {
 			e.Logger.Fatal("shutting down")
 		}

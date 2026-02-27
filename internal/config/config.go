@@ -22,10 +22,16 @@ type DatabaseConfig struct {
 	SSLMode  string `yaml:"sslmode"`
 }
 
+// JWT config
+type JWTConfig struct {
+	Secret string `yaml:"secret"`
+}
+
 // Config represents the entire application configuration
 type Config struct {
 	Server   ServerConfig   `yaml:"server"`
 	Database DatabaseConfig `yaml:"database"`
+	JWT      JWTConfig      `yaml:"jwt"`
 }
 
 // LoadConfig reads and parses the YAML configuration file

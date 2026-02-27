@@ -9,3 +9,6 @@ database:
   password: m
   dbname: todo_app
   sslmode: disable
+
+jwt:
+  secret: "super-secret-key-change-this"

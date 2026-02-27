@@ -1,167 +1,76 @@
 package handlers
 
 import (
-	"database/sql"
 	"net/http"
 	"strconv"
 
-	"github.com/manish-npx/todo-go-echo/internal/models"
-	"github.com/manish-npx/todo-go-echo/internal/repository"
-
 	"github.com/labstack/echo/v4"
+	"github.com/manish-npx/todo-go-echo/internal/constants"
+	"github.com/manish-npx/todo-go-echo/internal/dto"
+	"github.com/manish-npx/todo-go-echo/internal/services"
+	"github.com/manish-npx/todo-go-echo/internal/utils"
 )
 
-// TodoHandler handles HTTP requests for todos
 type TodoHandler struct {
-	repo repository.TodoRepository
+	service services.TodoService
 }
 
-// NewTodoHandler creates a new todo handler
-func NewTodoHandler(repo repository.TodoRepository) *TodoHandler {
-	return &TodoHandler{repo: repo}
+func NewTodoHandler(s services.TodoService) *TodoHandler {
+	return &TodoHandler{s}
 }
 
-// GetTodos handles GET /todos
-func (h *TodoHandler) GetTodos(c echo.Context) error {
-	todos, err := h.repo.GetAll()
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to fetch todos",
-		})
-	}
-
-	return c.JSON(http.StatusOK, todos)
-}
-
-// GetTodo handles GET /todos/:id
-func (h *TodoHandler) GetTodo(c echo.Context) error {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid todo ID",
-		})
-	}
-
-	todo, err := h.repo.GetByID(id)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to fetch todo",
-		})
-	}
-
-	if todo == nil {
-		return c.JSON(http.StatusNotFound, map[string]string{
-			"error": "Todo not found",
-		})
-	}
-
-	return c.JSON(http.StatusOK, todo)
-}
-
-// CreateTodo handles POST /todos
-func (h *TodoHandler) CreateTodo(c echo.Context) error {
-	var req models.CreateTodoRequest
-
+func (h *TodoHandler) Create(c echo.Context) error {
+	var req dto.CreateTodoRequest
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid request body",
-		})
+		return utils.Error(c, http.StatusBadRequest, constants.ErrInvalidPayload, err)
 	}
 
-	// Basic validation
-	if req.Title == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Title is required",
-		})
+	if err := c.Validate(&req); err != nil {
+		return utils.Error(c, http.StatusBadRequest, "Validation failed", err)
 	}
 
-	todo := &models.Todo{
-		Title:       req.Title,
-		Description: req.Description,
+	todo, err := h.service.Create(req.Title)
+	if err != nil {
+		return utils.Error(c, http.StatusInternalServerError, "Failed to create", err)
 	}
 
-	if err := h.repo.Create(todo); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to create todo",
-		})
-	}
-
-	return c.JSON(http.StatusCreated, todo)
+	return utils.Success(c, constants.Success, todo)
 }
 
-// UpdateTodo handles PUT /todos/:id
-func (h *TodoHandler) UpdateTodo(c echo.Context) error {
-	id, err := strconv.Atoi(c.Param("id"))
+func (h *TodoHandler) GetAll(c echo.Context) error {
+	todos, err := h.service.GetAll()
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid todo ID",
-		})
+		return utils.Error(c, 500, "Failed", err)
 	}
-
-	// Get existing todo
-	existingTodo, err := h.repo.GetByID(id)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to fetch todo",
-		})
-	}
-
-	if existingTodo == nil {
-		return c.JSON(http.StatusNotFound, map[string]string{
-			"error": "Todo not found",
-		})
-	}
-
-	// Bind update request
-	var req models.UpdateTodoRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid request body",
-		})
-	}
-
-	// Update fields if provided
-	if req.Title != nil {
-		existingTodo.Title = *req.Title
-	}
-	if req.Description != nil {
-		existingTodo.Description = *req.Description
-	}
-	if req.Completed != nil {
-		existingTodo.Completed = *req.Completed
-	}
-
-	// Save updates
-	if err := h.repo.Update(existingTodo); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to update todo",
-		})
-	}
-
-	return c.JSON(http.StatusOK, existingTodo)
+	return utils.Success(c, constants.Success, todos)
 }
 
-// DeleteTodo handles DELETE /todos/:id
-func (h *TodoHandler) DeleteTodo(c echo.Context) error {
-	id, err := strconv.Atoi(c.Param("id"))
+func (h *TodoHandler) Update(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid todo ID",
-		})
+		return utils.Error(c, 400, constants.ErrInvalidID, err)
 	}
 
-	if err := h.repo.Delete(id); err != nil {
-		if err == sql.ErrNoRows {
-			return c.JSON(http.StatusNotFound, map[string]string{
-				"error": "Todo not found",
-			})
-		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to delete todo",
-		})
+	var req dto.UpdateTodoRequest
+	c.Bind(&req)
+
+	todo, err := h.service.Update(id, req.Title, req.Completed)
+	if err != nil {
+		return utils.Error(c, 500, "Update failed", err)
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{
-		"message": "Todo deleted successfully",
-	})
+	return utils.Success(c, constants.Success, todo)
+}
+
+func (h *TodoHandler) Delete(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return utils.Error(c, 400, constants.ErrInvalidID, err)
+	}
+
+	if err := h.service.Delete(id); err != nil {
+		return utils.Error(c, 500, "Delete failed", err)
+	}
+
+	return utils.Success(c, "Deleted successfully", nil)
 }

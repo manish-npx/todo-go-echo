@@ -1,0 +1,44 @@
+root = "."
+testdata_dir = "testdata"
+tmp_dir = "tmp"
+
+
+[build]
+args_bin = [ ]
+bin = "tmp/api.exe"
+cmd = "go build -o tmp/api.exe ./cmd/api"
+delay = 1_000
+exclude_dir = [ "assets", "tmp", "vendor", "testdata" ]
+exclude_file = [ ]
+exclude_regex = [ "_test.go" ]
+exclude_unchanged = false
+follow_symlink = false
+full_bin = ""
+include_dir = [ ]
+include_ext = [ "go", "tpl", "tmpl", "html" ]
+kill_delay = "0s"
+log = "build-errors.log"
+send_interrupt = false
+stop_on_error = true
+
+
+[color]
+app = "bright_blue"
+main = "yellow"
+watcher = "cyan"
+build = "green"
+runner = "magenta"
+
+
+[log]
+time = true
+main_only = false
+
+
+[misc]
+clean_on_exit = true
+
+
+[screen]
+clear_on_rebuild = true
+keep_scroll = true
