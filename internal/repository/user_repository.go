@@ -11,7 +11,7 @@ import (
 type UserRepository interface {
 	Create(user *models.User) error
 	GetByEmail(email string) (*models.User, error)
-	GetById(id int) (*models.User, error)
+	GetByID(id int) (*models.User, error)
 	GetAll() ([]models.User, error)
 }
 
@@ -64,13 +64,14 @@ func (r *userRepository) GetByEmail(email string) (*models.User, error) {
 	return &user, nil
 }
 
-func (r *userRepository) GetByID(id int64) (*models.User, error) {
+// GetByID fetches user by ID.
+func (r *userRepository) GetByID(id int) (*models.User, error) {
 	var u models.User
 
 	err := r.db.QueryRow(
-		`SELECT id,name,email,created_at FROM users WHERE id=$1`,
+		`SELECT id, name, email, mobile, created_at FROM users WHERE id=$1`,
 		id,
-	).Scan(&u.ID, &u.Name, &u.Email, &u.CreatedAt)
+	).Scan(&u.ID, &u.Name, &u.Email, &u.Mobile, &u.CreatedAt)
 
 	if err != nil {
 		return nil, err

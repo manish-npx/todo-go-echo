@@ -16,7 +16,7 @@ func New() *CustomValidator {
 	}
 }
 
-// ValidateStruct validates struct
-func (cv *CustomValidator) ValidateStruct(i interface{}) error {
+// Validate implements echo.Validator.
+func (cv *CustomValidator) Validate(i interface{}) error {
 	return cv.validator.Struct(i)
 }
