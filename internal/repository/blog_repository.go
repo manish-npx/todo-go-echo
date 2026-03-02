@@ -16,7 +16,7 @@ type BlogRepository interface {
 	GetAll(ctx context.Context) ([]models.Blog, error)
 	GetByID(ctx context.Context, id int) (*models.Blog, error)
 	GetByCategory(ctx context.Context, categoryID int) ([]models.Blog, error)
-	GetPublished(ctx context.Context) ([]models.Blog, error) // ADD CONTEXT
+	GetPublished(ctx context.Context) ([]models.Blog, error)
 	GetByAuthor(ctx context.Context, author string) ([]models.Blog, error)
 	Create(ctx context.Context, blog *models.Blog) error
 	Update(ctx context.Context, blog *models.Blog) error
@@ -152,12 +152,12 @@ func (r *blogRepository) GetByCategory(ctx context.Context, categoryID int) ([]m
 	return blogs, nil
 }
 
-// GetPublished retrieves published blogs - FIXED: Added ctx parameter
+// GetPublished retrieves published blogs.
 func (r *blogRepository) GetPublished(ctx context.Context) ([]models.Blog, error) {
 	query := `SELECT id, title, content, author, category_id, status, views, created_at, updated_at, published_at
 			  FROM blogs WHERE status = 'published' ORDER BY published_at DESC`
 
-	rows, err := r.db.QueryContext(ctx, query) // Use QueryContext with ctx
+	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}

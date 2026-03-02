@@ -35,11 +35,11 @@ func NewBlogService(blogRepo repository.BlogRepository, categoryRepo repository.
 func (s *blogService) GetBlogs(ctx context.Context, categoryID, author, status string) ([]models.Blog, error) {
 	switch {
 	case categoryID != "":
-		id, err := strconv.Atoi(categoryID)
+		categoryIDValue, err := strconv.Atoi(categoryID)
 		if err != nil {
-			return nil, errors.New("invalid category id")
+			return nil, errors.New("invalid category ID")
 		}
-		return s.blogRepo.GetByCategory(ctx, id)
+		return s.blogRepo.GetByCategory(ctx, categoryIDValue)
 	case author != "":
 		return s.blogRepo.GetByAuthor(ctx, author)
 	case status == "published":

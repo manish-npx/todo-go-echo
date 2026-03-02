@@ -7,7 +7,7 @@ import (
 	"github.com/manish-npx/todo-go-echo/internal/models"
 )
 
-// _ TodoRepository defines the interface for todo database operations
+// TodoRepository defines the interface for todo database operations.
 type TodoRepository interface {
 	GetAll() ([]models.Todo, error)
 	GetByID(id int) (*models.Todo, error)
@@ -70,7 +70,7 @@ func (r *todoRepository) GetByID(id int) (*models.Todo, error) {
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, nil // _Todo not found
+		return nil, nil // Todo not found.
 	}
 	if err != nil {
 		return nil, err

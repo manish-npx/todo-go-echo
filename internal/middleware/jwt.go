@@ -5,8 +5,8 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func JWTMiddleware(secret string) echo.MiddlewareFunc {
+func JWTMiddleware(jwtSecret string) echo.MiddlewareFunc {
 	return echojwt.WithConfig(echojwt.Config{
-		SigningKey: []byte(secret),
+		SigningKey: []byte(jwtSecret),
 	})
 }

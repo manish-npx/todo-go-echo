@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"net/http"
+
 	"github.com/labstack/echo/v4"
 
 	"github.com/manish-npx/todo-go-echo/internal/handlers"
@@ -15,49 +17,49 @@ type RouteHandlers struct {
 	JWTSecret       string // Secret injected once and used only for protected route middleware.
 }
 
-func RegisterRoutes(e *echo.Echo, h RouteHandlers) {
-	api := e.Group("/api/v1")
+func RegisterRoutes(router *echo.Echo, routeHandlers RouteHandlers) {
+	api := router.Group("/api/v1")
 
 	// Health
 	api.GET("/health", func(c echo.Context) error {
-		return c.JSON(200, map[string]string{
+		return c.JSON(http.StatusOK, map[string]string{
 			"status": "OK",
 		})
 	})
 
 	// Todos
 	todos := api.Group("/todos")
-	todos.GET("", h.TodoHandler.GetTodos)
-	todos.POST("", h.TodoHandler.CreateTodo)
-	todos.GET("/:id", h.TodoHandler.GetTodo)
-	todos.PUT("/:id", h.TodoHandler.UpdateTodo)
-	todos.DELETE("/:id", h.TodoHandler.DeleteTodo)
+	todos.GET("", routeHandlers.TodoHandler.GetTodos)
+	todos.POST("", routeHandlers.TodoHandler.CreateTodo)
+	todos.GET("/:id", routeHandlers.TodoHandler.GetTodo)
+	todos.PUT("/:id", routeHandlers.TodoHandler.UpdateTodo)
+	todos.DELETE("/:id", routeHandlers.TodoHandler.DeleteTodo)
 
 	// Categories
 	categories := api.Group("/categories")
-	categories.GET("", h.CategoryHandler.GetCategories)
-	categories.POST("", h.CategoryHandler.CreateCategory)
-	categories.GET("/:id", h.CategoryHandler.GetCategory)
-	categories.PUT("/:id", h.CategoryHandler.UpdateCategory)
-	categories.DELETE("/:id", h.CategoryHandler.DeleteCategory)
+	categories.GET("", routeHandlers.CategoryHandler.GetCategories)
+	categories.POST("", routeHandlers.CategoryHandler.CreateCategory)
+	categories.GET("/:id", routeHandlers.CategoryHandler.GetCategory)
+	categories.PUT("/:id", routeHandlers.CategoryHandler.UpdateCategory)
+	categories.DELETE("/:id", routeHandlers.CategoryHandler.DeleteCategory)
 
 	// Blogs
 	blogs := api.Group("/blogs")
-	blogs.GET("", h.BlogHandler.GetBlogs)
-	blogs.POST("", h.BlogHandler.CreateBlog)
-	blogs.GET("/search", h.BlogHandler.SearchBlogs)
-	blogs.GET("/:id", h.BlogHandler.GetBlog)
-	blogs.PUT("/:id", h.BlogHandler.UpdateBlog)
-	blogs.DELETE("/:id", h.BlogHandler.DeleteBlog)
-	blogs.PATCH("/:id/publish", h.BlogHandler.PublishBlog)
+	blogs.GET("", routeHandlers.BlogHandler.GetBlogs)
+	blogs.POST("", routeHandlers.BlogHandler.CreateBlog)
+	blogs.GET("/search", routeHandlers.BlogHandler.SearchBlogs)
+	blogs.GET("/:id", routeHandlers.BlogHandler.GetBlog)
+	blogs.PUT("/:id", routeHandlers.BlogHandler.UpdateBlog)
+	blogs.DELETE("/:id", routeHandlers.BlogHandler.DeleteBlog)
+	blogs.PATCH("/:id/publish", routeHandlers.BlogHandler.PublishBlog)
 
 	// Auth
 	auth := api.Group("/auth")
-	auth.POST("/register", h.UserHandler.Register)
-	auth.POST("/login", h.UserHandler.Login)
+	auth.POST("/register", routeHandlers.UserHandler.Register)
+	auth.POST("/login", routeHandlers.UserHandler.Login)
 
 	// Users (protected)
 	users := api.Group("/users")
-	users.Use(middleware.JWTMiddleware(h.JWTSecret))
-	users.GET("", h.UserHandler.GetUsers)
+	users.Use(middleware.JWTMiddleware(routeHandlers.JWTSecret))
+	users.GET("", routeHandlers.UserHandler.GetUsers)
 }

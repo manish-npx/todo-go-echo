@@ -18,13 +18,13 @@ func ErrorHandler(err error, c echo.Context) {
 	code := http.StatusInternalServerError
 	msg := "internal server error"
 
-	if he, ok := err.(*echo.HTTPError); ok {
-		code = he.Code
-		switch m := he.Message.(type) {
+	if httpErr, ok := err.(*echo.HTTPError); ok {
+		code = httpErr.Code
+		switch m := httpErr.Message.(type) {
 		case string:
 			msg = m
 		default:
-			msg = http.StatusText(he.Code)
+			msg = http.StatusText(httpErr.Code)
 			if msg == "" {
 				msg = "request failed"
 			}
