@@ -1,0 +1,7 @@
+.git
+.gitignore
+.air.toml
+tmp
+dist
+bin
+*.log

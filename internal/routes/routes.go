@@ -4,7 +4,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/manish-npx/todo-go-echo/internal/handlers"
-	appmiddleware "github.com/manish-npx/todo-go-echo/internal/middleware"
+	"github.com/manish-npx/todo-go-echo/internal/middleware"
 )
 
 type RouteHandlers struct {
@@ -58,6 +58,6 @@ func RegisterRoutes(e *echo.Echo, h RouteHandlers) {
 
 	// Users (protected)
 	users := api.Group("/users")
-	users.Use(appmiddleware.JWTMiddleware(h.JWTSecret))
+	users.Use(middleware.JWTMiddleware(h.JWTSecret))
 	users.GET("", h.UserHandler.GetUsers)
 }

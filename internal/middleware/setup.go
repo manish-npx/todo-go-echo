@@ -1,11 +1,12 @@
-package appmiddleware
+package middleware
 
 import (
-	"log"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	echoMiddleware "github.com/labstack/echo/v4/middleware"
+	"github.com/manish-npx/todo-go-echo/internal/logger"
+	"go.uber.org/zap"
 )
 
 func Setup(e *echo.Echo) {
@@ -22,13 +23,12 @@ func Setup(e *echo.Echo) {
 			LogStatus:    true,
 			LogLatency:   true,
 			LogValuesFunc: func(c echo.Context, v echoMiddleware.RequestLoggerValues) error {
-				log.Printf(
-					"REQUEST_ID=%s METHOD=%s URI=%s STATUS=%d LATENCY=%s",
-					v.RequestID,
-					v.Method,
-					v.URI,
-					v.Status,
-					v.Latency,
+				logger.L().Info("http_request",
+					zap.String("request_id", v.RequestID),
+					zap.String("method", v.Method),
+					zap.String("uri", v.URI),
+					zap.Int("status", v.Status),
+					zap.Duration("latency", v.Latency),
 				)
 				return nil
 			},

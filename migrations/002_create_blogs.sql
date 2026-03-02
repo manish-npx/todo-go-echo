@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS categories (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS blogs (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    author VARCHAR(100) NOT NULL,
+    category_id INT REFERENCES categories(id) ON DELETE SET NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'draft',
+    views INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    published_at TIMESTAMP NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_blogs_category_id ON blogs(category_id);
+CREATE INDEX IF NOT EXISTS idx_blogs_status ON blogs(status);

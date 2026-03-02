@@ -1,0 +1,14 @@
+server:
+  port: 8080
+  timeout: 30
+
+database:
+  host: db
+  port: 5432
+  user: postgres
+  password: password
+  dbname: todo_app
+  sslmode: disable
+
+jwt:
+  secret: "super-secret-key-change-this"

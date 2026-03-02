@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/labstack/echo/v4"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/manish-npx/todo-go-echo/internal/config"
 	"github.com/manish-npx/todo-go-echo/internal/database"
 	"github.com/manish-npx/todo-go-echo/internal/handlers"
+	"github.com/manish-npx/todo-go-echo/internal/logger"
 	middleware "github.com/manish-npx/todo-go-echo/internal/middleware"
 	"github.com/manish-npx/todo-go-echo/internal/repository"
 	"github.com/manish-npx/todo-go-echo/internal/routes"
@@ -18,9 +20,17 @@ import (
 )
 
 func main() {
+	if err := logger.Init(); err != nil {
+		log.Fatal(err)
+	}
+	defer logger.Sync()
 
 	// Load config
-	cfg, err := config.LoadConfig("config/config.yaml")
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		configPath = "config/config.yaml"
+	}
+	cfg, err := config.LoadConfig(configPath)
 
 	if err != nil {
 		log.Fatal(err)
@@ -56,6 +66,7 @@ func main() {
 	// Echo Start
 	e := echo.New()
 	e.Validator = validator.New()
+	e.HTTPErrorHandler = middleware.ErrorHandler
 
 	// Middleware
 	middleware.Setup(e)
