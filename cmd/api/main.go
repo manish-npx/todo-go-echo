@@ -9,7 +9,7 @@ import (
 	"github.com/manish-npx/todo-go-echo/internal/config"
 	"github.com/manish-npx/todo-go-echo/internal/database"
 	"github.com/manish-npx/todo-go-echo/internal/handlers"
-	appmiddleware "github.com/manish-npx/todo-go-echo/internal/middleware"
+	middleware "github.com/manish-npx/todo-go-echo/internal/middleware"
 	"github.com/manish-npx/todo-go-echo/internal/repository"
 	"github.com/manish-npx/todo-go-echo/internal/routes"
 	"github.com/manish-npx/todo-go-echo/internal/server"
@@ -33,49 +33,46 @@ func main() {
 	}
 	defer db.Close()
 
-	// todos
+	// Dependency Injection todos
 	todoRepo := repository.NewTodoRepository(db)
 	todoService := service.NewTodoService(todoRepo)
 	todoHandler := handlers.NewTodoHandler(todoService)
 
-	//category
+	//  Dependency Injection  category
 	categoryRepo := repository.NewCategoryRepository(db)
-	categoryHandler := handlers.NewCategoryHandler(categoryRepo)
+	categoryService := service.NewCategoryService(categoryRepo)
+	categoryHandler := handlers.NewCategoryHandler(categoryService)
 
-	// Blogs
+	//  Dependency Injection  Blogs
 	blogRepo := repository.NewBlogRepository(db)
-	blogHandler := handlers.NewBlogHandler(blogRepo, categoryRepo)
+	blogService := service.NewBlogService(blogRepo, categoryRepo)
+	blogHandler := handlers.NewBlogHandler(blogService)
 
-	// Dependency Injection
+	// USER Dependency Injection
 	userRepo := repository.NewUserRepository(db)
 	userService := service.NewUserService(userRepo, cfg.JWT.Secret)
 	userHandler := handlers.NewUserHandler(userService)
 
-	// Echo
+	// Echo Start
 	e := echo.New()
 	e.Validator = validator.New()
 
 	// Middleware
-	appmiddleware.Setup(e)
+	middleware.Setup(e)
 
 	// Routes
 	routes.RegisterRoutes(e, routes.RouteHandlers{
 		TodoHandler:     todoHandler,
 		CategoryHandler: categoryHandler,
 		BlogHandler:     blogHandler,
+		UserHandler:     userHandler,
+		JWTSecret:       cfg.JWT.Secret,
 	})
 
 	// Static React build
 	e.Static("/", "dist")
 
-	// Routes
-	e.POST("/register", userHandler.Register)
-	e.POST("/login", userHandler.Login)
-	authGroup := e.Group("")
-	authGroup.Use(appmiddleware.JWTMiddleware(cfg.JWT.Secret))
-	authGroup.GET("/users", userHandler.GetUsers)
-
 	// Start server
-	server.Start(e, cfg.Server.Port)
+	server.Start(e, cfg.Server.Port, cfg.Server.Timeout)
 
 }

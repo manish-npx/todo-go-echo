@@ -16,8 +16,8 @@ type Todo struct {
 
 // CreateTodoRequest is used when creating a new todo
 type CreateTodoRequest struct {
-	Title       string `json:"title,omitempty" validate:"omitempty,min=3"`
-	Description string `json:"description,omitempty" validate:"omitempty,min=5"`
+	Title       string `json:"title" validate:"required,min=3"`
+	Description string `json:"description" validate:"required,min=5"`
 }
 
 // UpdateTodoRequest is used when updating an existing todo

@@ -12,8 +12,8 @@ type Category struct {
 
 // CreateCategoryRequest is used when creating a category
 type CreateCategoryRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name        string `json:"name" validate:"required,min=2,max=100"`
+	Description string `json:"description" validate:"required,min=5,max=500"`
 }
 
 // UpdateCategoryRequest is used when updating a category

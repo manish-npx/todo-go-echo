@@ -5,12 +5,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/labstack/echo/v4"
 )
 
-func Start(e *echo.Echo, port string) {
+func Start(e *echo.Echo, port string, timeoutSeconds int) {
 	go func() { //go routine
 		if err := e.Start(":" + port); err != nil && err != http.ErrServerClosed {
 			e.Logger.Fatal("shutting down")
@@ -18,10 +19,15 @@ func Start(e *echo.Echo, port string) {
 	}()
 
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	<-quit
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownTimeout := 10 * time.Second
+	if timeoutSeconds > 0 {
+		shutdownTimeout = time.Duration(timeoutSeconds) * time.Second
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
 	if err := e.Shutdown(ctx); err != nil {

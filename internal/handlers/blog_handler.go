@@ -6,311 +6,162 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
+	"github.com/manish-npx/todo-go-echo/internal/constants"
+	"github.com/manish-npx/todo-go-echo/internal/dto"
 	"github.com/manish-npx/todo-go-echo/internal/models"
-	"github.com/manish-npx/todo-go-echo/internal/repository"
+	"github.com/manish-npx/todo-go-echo/internal/service"
 )
 
-// BlogHandler handles HTTP requests for blogs
 type BlogHandler struct {
-	blogRepo     repository.BlogRepository
-	categoryRepo repository.CategoryRepository
+	service service.BlogService
 }
 
-// NewBlogHandler creates a new blog handler
-func NewBlogHandler(blogRepo repository.BlogRepository, categoryRepo repository.CategoryRepository) *BlogHandler {
-	return &BlogHandler{
-		blogRepo:     blogRepo,
-		categoryRepo: categoryRepo,
-	}
+func NewBlogHandler(service service.BlogService) *BlogHandler {
+	return &BlogHandler{service: service}
 }
 
-// GetBlogs handles GET /blogs
-// Supports query parameters: ?category=1&author=john&status=published
+// GetBlogs handles GET /api/v1/blogs.
 func (h *BlogHandler) GetBlogs(c echo.Context) error {
-	ctx := c.Request().Context() // Get context from request
+	ctx := c.Request().Context()
 
-	// Check for query parameters
 	categoryID := c.QueryParam("category")
 	author := c.QueryParam("author")
 	status := c.QueryParam("status")
 
-	var blogs []models.Blog
-	var err error
-
-	// Apply filters based on query parameters
-	switch {
-	case categoryID != "":
-		id, _ := strconv.Atoi(categoryID)
-		blogs, err = h.blogRepo.GetByCategory(ctx, id) // Pass context
-	case author != "":
-		blogs, err = h.blogRepo.GetByAuthor(ctx, author) // Pass context
-	case status == "published":
-		blogs, err = h.blogRepo.GetPublished(ctx) // Pass context
-	default:
-		blogs, err = h.blogRepo.GetAll(ctx) // Pass context
-	}
+	blogs, err := h.service.GetBlogs(ctx, categoryID, author, status)
 
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to fetch blogs",
-		})
+		return c.JSON(http.StatusInternalServerError, dto.ErrorResponse(constants.ErrInternal, err.Error()))
 	}
 
-	return c.JSON(http.StatusOK, blogs)
+	return c.JSON(http.StatusOK, dto.SuccessResponse(constants.MsgBlogsFetched, blogs))
 }
 
-// GetBlog handles GET /blogs/:id
+// GetBlog handles GET /api/v1/blogs/:id.
 func (h *BlogHandler) GetBlog(c echo.Context) error {
-	ctx := c.Request().Context() // Get context from request
+	ctx := c.Request().Context()
 
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid blog ID",
-		})
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse(constants.ErrInvalidID, err.Error()))
 	}
 
-	// Increment view count (don't return error to client if this fails)
-	go h.blogRepo.IncrementViews(ctx, id) // Pass context (in goroutine)
-
-	// Get blog details
-	blog, err := h.blogRepo.GetByID(ctx, id) // Pass context
+	blog, err := h.service.GetByID(ctx, id)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to fetch blog",
-		})
+		return c.JSON(http.StatusInternalServerError, dto.ErrorResponse(constants.ErrInternal, err.Error()))
 	}
-
 	if blog == nil {
-		return c.JSON(http.StatusNotFound, map[string]string{
-			"error": "Blog not found",
-		})
+		return c.JSON(http.StatusNotFound, dto.ErrorResponse("Blog not found", nil))
 	}
 
-	return c.JSON(http.StatusOK, blog)
+	return c.JSON(http.StatusOK, dto.SuccessResponse(constants.MsgBlogFetched, blog))
 }
 
-// CreateBlog handles POST /blogs
+// CreateBlog handles POST /api/v1/blogs.
 func (h *BlogHandler) CreateBlog(c echo.Context) error {
-	ctx := c.Request().Context() // Get context from request
+	ctx := c.Request().Context()
 
 	var req models.CreateBlogRequest
-
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid request body",
-		})
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse(constants.ErrValidation, err.Error()))
 	}
 
-	// Validate required fields
-	if req.Title == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Title is required",
-		})
-	}
-	if req.Content == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Content is required",
-		})
-	}
-	if req.Author == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Author is required",
-		})
+	if err := c.Validate(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse(constants.ErrValidation, err.Error()))
 	}
 
-	// Validate category if provided
-	if req.CategoryID != nil {
-		category, err := h.categoryRepo.GetByID(ctx, *req.CategoryID) // FIXED: Added ctx
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "Failed to validate category",
-			})
+	blog, err := h.service.Create(ctx, req)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return c.JSON(http.StatusBadRequest, dto.ErrorResponse("Invalid category ID", nil))
 		}
-		if category == nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "Invalid category ID",
-			})
-		}
+		return c.JSON(http.StatusInternalServerError, dto.ErrorResponse(constants.ErrInternal, err.Error()))
 	}
 
-	// Set status (default to draft)
-	status := models.StatusDraft
-	if req.Status == "published" {
-		status = models.StatusPublished
-	}
-
-	blog := &models.Blog{
-		Title:      req.Title,
-		Content:    req.Content,
-		Author:     req.Author,
-		CategoryID: req.CategoryID,
-		Status:     status,
-	}
-
-	if err := h.blogRepo.Create(ctx, blog); err != nil { // Pass context
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to create blog",
-		})
-	}
-
-	return c.JSON(http.StatusCreated, blog)
+	return c.JSON(http.StatusCreated, dto.SuccessResponse(constants.MsgBlogCreated, blog))
 }
 
-// UpdateBlog handles PUT /blogs/:id
+// UpdateBlog handles PUT /api/v1/blogs/:id.
 func (h *BlogHandler) UpdateBlog(c echo.Context) error {
-	ctx := c.Request().Context() // Get context from request
+	ctx := c.Request().Context()
 
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid blog ID",
-		})
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse(constants.ErrInvalidID, err.Error()))
 	}
 
-	// Get existing blog
-	blog, err := h.blogRepo.GetByID(ctx, id) // Pass context
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to fetch blog",
-		})
-	}
-
-	if blog == nil {
-		return c.JSON(http.StatusNotFound, map[string]string{
-			"error": "Blog not found",
-		})
-	}
-
-	// Bind updates
 	var req models.UpdateBlogRequest
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid request body",
-		})
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse(constants.ErrValidation, err.Error()))
 	}
 
-	// Update fields if provided
-	if req.Title != nil {
-		blog.Title = *req.Title
+	if err := c.Validate(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse(constants.ErrValidation, err.Error()))
 	}
-	if req.Content != nil {
-		blog.Content = *req.Content
-	}
-	if req.Author != nil {
-		blog.Author = *req.Author
-	}
-	if req.CategoryID != nil {
-		// Validate category if provided
-		if *req.CategoryID != 0 {
-			category, err := h.categoryRepo.GetByID(ctx, *req.CategoryID) // FIXED: Added ctx
-			if err != nil {
-				return c.JSON(http.StatusInternalServerError, map[string]string{
-					"error": "Failed to validate category",
-				})
-			}
-			if category == nil {
-				return c.JSON(http.StatusBadRequest, map[string]string{
-					"error": "Invalid category ID",
-				})
-			}
+
+	blog, err := h.service.Update(ctx, id, req)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return c.JSON(http.StatusNotFound, dto.ErrorResponse("Blog not found", nil))
 		}
-		blog.CategoryID = req.CategoryID
-	}
-	if req.Status != nil {
-		blog.Status = models.BlogStatus(*req.Status)
+		return c.JSON(http.StatusInternalServerError, dto.ErrorResponse(constants.ErrInternal, err.Error()))
 	}
 
-	if err := h.blogRepo.Update(ctx, blog); err != nil { // Pass context
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to update blog",
-		})
-	}
-
-	return c.JSON(http.StatusOK, blog)
+	return c.JSON(http.StatusOK, dto.SuccessResponse(constants.MsgBlogUpdated, blog))
 }
 
-// DeleteBlog handles DELETE /blogs/:id
+// DeleteBlog handles DELETE /api/v1/blogs/:id.
 func (h *BlogHandler) DeleteBlog(c echo.Context) error {
-	ctx := c.Request().Context() // Get context from request
+	ctx := c.Request().Context()
 
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid blog ID",
-		})
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse(constants.ErrInvalidID, err.Error()))
 	}
 
-	if err := h.blogRepo.Delete(ctx, id); err != nil { // Pass context
+	if err := h.service.Delete(ctx, id); err != nil {
 		if err == sql.ErrNoRows {
-			return c.JSON(http.StatusNotFound, map[string]string{
-				"error": "Blog not found",
-			})
+			return c.JSON(http.StatusNotFound, dto.ErrorResponse("Blog not found", nil))
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to delete blog",
-		})
+		return c.JSON(http.StatusInternalServerError, dto.ErrorResponse(constants.ErrInternal, err.Error()))
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{
-		"message": "Blog deleted successfully",
-	})
+	return c.JSON(http.StatusOK, dto.SuccessResponse(constants.MsgBlogDeleted, nil))
 }
 
-// SearchBlogs handles GET /blogs/search?q=term
+// SearchBlogs handles GET /api/v1/blogs/search?q=term.
 func (h *BlogHandler) SearchBlogs(c echo.Context) error {
-	ctx := c.Request().Context() // Get context from request
+	ctx := c.Request().Context()
 
 	query := c.QueryParam("q")
 	if query == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Search query is required",
-		})
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse(constants.ErrValidation, "search query is required"))
 	}
 
-	blogs, err := h.blogRepo.Search(ctx, query) // Pass context
+	blogs, err := h.service.Search(ctx, query)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to search blogs",
-		})
+		return c.JSON(http.StatusInternalServerError, dto.ErrorResponse(constants.ErrInternal, err.Error()))
 	}
 
-	return c.JSON(http.StatusOK, blogs)
+	return c.JSON(http.StatusOK, dto.SuccessResponse(constants.MsgBlogsFetched, blogs))
 }
 
-// PublishBlog handles PATCH /blogs/:id/publish
+// PublishBlog handles PATCH /api/v1/blogs/:id/publish.
 func (h *BlogHandler) PublishBlog(c echo.Context) error {
-	ctx := c.Request().Context() // Get context from request
+	ctx := c.Request().Context()
 
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Invalid blog ID",
-		})
+		return c.JSON(http.StatusBadRequest, dto.ErrorResponse(constants.ErrInvalidID, err.Error()))
 	}
 
-	// Get existing blog
-	blog, err := h.blogRepo.GetByID(ctx, id) // Pass context
+	blog, err := h.service.Publish(ctx, id)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to fetch blog",
-		})
+		if err == sql.ErrNoRows {
+			return c.JSON(http.StatusNotFound, dto.ErrorResponse("Blog not found", nil))
+		}
+		return c.JSON(http.StatusInternalServerError, dto.ErrorResponse(constants.ErrInternal, err.Error()))
 	}
 
-	if blog == nil {
-		return c.JSON(http.StatusNotFound, map[string]string{
-			"error": "Blog not found",
-		})
-	}
-
-	// Update status to published
-	blog.Status = models.StatusPublished
-
-	if err := h.blogRepo.Update(ctx, blog); err != nil { // Pass context
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Failed to publish blog",
-		})
-	}
-
-	return c.JSON(http.StatusOK, blog)
+	return c.JSON(http.StatusOK, dto.SuccessResponse(constants.MsgBlogPublished, blog))
 }

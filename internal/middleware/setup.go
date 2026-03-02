@@ -9,21 +9,22 @@ import (
 )
 
 func Setup(e *echo.Echo) {
-
 	e.Use(echoMiddleware.Recover())
 	e.Use(echoMiddleware.CORS())
+	e.Use(echoMiddleware.RequestID())
 
-	// ✅ Proper Request Logger (New API)
+	// ✅ Structured request logging for observability.
 	e.Use(echoMiddleware.RequestLoggerWithConfig(
 		echoMiddleware.RequestLoggerConfig{
-			LogURI:     true,
-			LogMethod:  true,
-			LogStatus:  true,
-			LogLatency: true,
-
+			LogRequestID: true,
+			LogURI:       true,
+			LogMethod:    true,
+			LogStatus:    true,
+			LogLatency:   true,
 			LogValuesFunc: func(c echo.Context, v echoMiddleware.RequestLoggerValues) error {
 				log.Printf(
-					"METHOD=%s URI=%s STATUS=%d LATENCY=%s",
+					"REQUEST_ID=%s METHOD=%s URI=%s STATUS=%d LATENCY=%s",
+					v.RequestID,
 					v.Method,
 					v.URI,
 					v.Status,
@@ -34,7 +35,7 @@ func Setup(e *echo.Echo) {
 		},
 	))
 
-	// ✅ Context Timeout (race-free)
+	// ✅ Request timeout to protect server resources.
 	e.Use(echoMiddleware.ContextTimeoutWithConfig(
 		echoMiddleware.ContextTimeoutConfig{
 			Timeout: 30 * time.Second,

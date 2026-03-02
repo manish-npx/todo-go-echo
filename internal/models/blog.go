@@ -31,7 +31,7 @@ type CreateBlogRequest struct {
 	Content    string `json:"content" validate:"required,min=10"`
 	Author     string `json:"author" validate:"required,min=2"`
 	CategoryID *int   `json:"category_id"`
-	Status     string `json:"status"` // "draft" or "published"
+	Status     string `json:"status" validate:"omitempty,oneof=draft published"` // "draft" or "published"
 }
 
 // UpdateBlogRequest is used when updating a blog
@@ -40,5 +40,5 @@ type UpdateBlogRequest struct {
 	Content    *string `json:"content" validate:"omitempty,min=10"`
 	Author     *string `json:"author" validate:"omitempty,min=2"`
 	CategoryID *int    `json:"category_id"`
-	Status     *string `json:"status"`
+	Status     *string `json:"status" validate:"omitempty,oneof=draft published"`
 }

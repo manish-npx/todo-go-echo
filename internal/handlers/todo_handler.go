@@ -45,7 +45,7 @@ func (h *TodoHandler) GetTodos(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, dto.ErrorResponse(constants.ErrInternal, err.Error()))
 	}
-	return c.JSON(http.StatusOK, dto.SuccessResponse("Todos fetched successfully", todos))
+	return c.JSON(http.StatusOK, dto.SuccessResponse(constants.MsgTodosFetched, todos))
 }
 
 // GetTodo handles GET /api/v1/todos/:id.
@@ -63,7 +63,7 @@ func (h *TodoHandler) GetTodo(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, dto.ErrorResponse("Todo not found", nil))
 	}
 
-	return c.JSON(http.StatusOK, dto.SuccessResponse("Todo fetched successfully", todo))
+	return c.JSON(http.StatusOK, dto.SuccessResponse(constants.MsgTodoFetched, todo))
 }
 
 // UpdateTodo handles PUT /api/v1/todos/:id.
