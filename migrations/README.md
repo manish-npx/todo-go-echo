@@ -1,31 +1,30 @@
 # Migrations
 
-This project keeps SQL migrations in this folder for production-safe schema changes.
+Production apps should version schema changes through migration files.
 
-## golang-migrate
+This folder uses `golang-migrate` file naming:
 
-Create:
+- `NNN_name.up.sql`
+- `NNN_name.down.sql`
+
+## Create a new migration
 
 ```bash
-migrate create -ext sql -dir migrations add_new_table
+migrate create -ext sql -dir migrations add_indexes
 ```
 
-Run:
+## Apply migrations (local)
 
 ```bash
 migrate -path migrations -database "postgres://postgres:password@localhost:5432/todo_app?sslmode=disable" up
 ```
 
-## goose
-
-Create:
+## Rollback one migration
 
 ```bash
-goose -dir migrations create add_new_table sql
+migrate -path migrations -database "postgres://postgres:password@localhost:5432/todo_app?sslmode=disable" down 1
 ```
 
-Run:
+## Docker compose flow
 
-```bash
-goose -dir migrations postgres "host=localhost port=5432 user=postgres password=password dbname=todo_app sslmode=disable" up
-```
+`docker-compose.yml` contains a dedicated `migrate` service that runs `up` before API startup.

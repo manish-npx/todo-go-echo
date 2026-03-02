@@ -10,5 +10,9 @@ database:
   dbname: todo_app
   sslmode: disable
 
+orm:
+  enabled: false
+  auto_migrate: false
+
 jwt:
   secret: "super-secret-key-change-this"

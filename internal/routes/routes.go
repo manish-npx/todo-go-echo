@@ -12,7 +12,7 @@ type RouteHandlers struct {
 	CategoryHandler *handlers.CategoryHandler
 	BlogHandler     *handlers.BlogHandler
 	UserHandler     *handlers.UserHandler
-	JWTSecret       string
+	JWTSecret       string // Secret injected once and used only for protected route middleware.
 }
 
 func RegisterRoutes(e *echo.Echo, h RouteHandlers) {

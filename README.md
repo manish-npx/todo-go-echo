@@ -1,292 +1,232 @@
-# 📝 Todo Application with Go, Echo & PostgreSQL
+# Todo + Blog + User API (Go, Echo, PostgreSQL)
 
-A complete beginner-friendly CRUD Todo API built using:
+Production-oriented REST API with layered architecture, centralized error handling, structured logging, migrations, Docker setup, and optional ORM support.
 
-- Go (Golang)
-- Echo Web Framework
+## Stack
+
+- Go `1.25.x` (toolchain pinned to patched version)
+- Echo v4
 - PostgreSQL
-- YAML Configuration
-- Clean Architecture (cmd + internal structure)
+- `database/sql` repositories (primary path)
+- Optional GORM (`gorm.io/gorm`) bootstrap
+- Zap logger (`go.uber.org/zap`)
+- `go-playground/validator`
+- `golang-migrate` style SQL migrations
 
-This project helps you understand real-world backend structure while learning important Go concepts like structs, interfaces, dependency injection, and database handling.
+## Architecture
 
----
+Request flow:
 
-# 🚀 Tech Stack
+`Routes -> Middleware -> Handlers -> Services -> Repositories -> Database`
 
-- Go 1.21+
-- Echo Framework
-- PostgreSQL
-- pgx (Postgres driver)
-- YAML Configuration
+Design rules used:
 
----
+- Handlers: HTTP concerns only (bind, validate, status code, response)
+- Services: business logic and orchestration
+- Repositories: DB queries and persistence details
+- Middleware: cross-cutting concerns (auth, logging, error handler)
+- DTOs: API response shape
 
-# 🎯 Important Go Topics Covered
+## Folder Structure
 
-## Core Go Concepts
-
-- Variables & Data Types
-- Functions
-- Packages & Modules
-- Error Handling
-- Pointers
-- Structs
-- Methods
-- Interfaces
-- Composition
-- Dependency Injection
-- Context package
-- JSON encoding/decoding
-- Struct Tags (`json`, `yaml`)
-
-## Backend & Architecture Concepts
-
-- Clean Architecture
-- Repository Pattern
-- Layered Architecture
-- Configuration Management (YAML)
-- Connection Pooling
-- REST API Design
-- HTTP Status Codes
-- Middleware basics
-- Environment configuration
-
----
-
-# 📂 Project Structure
-
-```
+```text
 todo-go-echo/
-│
-├── cmd/
-│   └── api/
-│       └── main.go              # Application entry point
-│
-├── config/
-│   └── config.yaml              # Application configuration
-│
-├── internal/
-│   ├── config/
-│   │   └── config.go            # Config loader logic
-│   │
-│   ├── database/
-│   │   └── postgres.go          # PostgreSQL connection setup
-│   │
-│   ├── handlers/
-│   │   ├── blog_handler.go
-│   │   ├── category_handler.go
-│   │   └── todo_handler.go      # HTTP handlers (controllers)
-│   │
-│   ├── middleware/
-│   │   └── appmiddleware.go     # App-level middleware setup
-│   │
-│   ├── models/
-│   │   ├── blog.go
-│   │   ├── category.go
-│   │   └── todo.go              # Domain models
-│   │
-│   ├── repository/
-│   │   ├── blog_repository.go
-│   │   ├── category_repository.go
-│   │   └── todo_repository.go   # Database access layer
-│   │
-│   ├── routes/
-│   │   └── routes.go            # Route registration
-│   │
-│   ├── server/
-│   │   └── server.go            # Graceful server startup & shutdown
-│   │
-│   └── utils/
-│       ├── errors.go
-│       └── validator.go
-│
-├── go.mod
-├── go.sum
-└── .gitignore
+  cmd/
+    api/
+      main.go                     # App bootstrap + DI wiring
 
+  config/
+    config.yaml                  # Local config
+    config.docker.yaml           # Docker config
+
+  migrations/
+    001_create_users.up.sql
+    001_create_users.down.sql
+    002_create_categories_and_blogs.up.sql
+    002_create_categories_and_blogs.down.sql
+    003_create_todos.up.sql
+    003_create_todos.down.sql
+
+  internal/
+    app/
+      app.go                     # Single setup place: wiring + server lifecycle
+
+    config/
+      config.go                  # YAML config structs + loader
+
+    constants/
+      errors.go                  # Shared error messages/codes
+      messages.go                # Shared success messages
+
+    database/
+      postgres.go                # sql.DB connection (primary)
+      gorm.go                    # Optional GORM bootstrap
+
+    dto/
+      response.go                # Standard API response wrapper
+      error.go                   # DTO types for validation errors
+
+    handlers/
+      user_handler.go
+      todo_handler.go
+      category_handler.go
+      blog_handler.go
+
+    logger/
+      logger.go                  # Zap singleton logger
+
+    middleware/
+      setup.go                   # Recover, CORS, timeout, request logging
+      jwt.go                     # JWT auth middleware
+      error.go                   # Global HTTP error handler
+
+    models/
+      user.go
+      todo.go
+      category.go
+      blog.go
+
+    repository/
+      user_repository.go
+      todo_repository.go
+      category_repository.go
+      blog_repository.go
+
+    routes/
+      routes.go                  # API route groups and middleware attachment
+
+    service/
+      user_service.go
+      todo_service.go
+      category_service.go
+      blog_service.go
+
+    validator/
+      validator.go               # Echo validator adapter
+
+  Dockerfile
+  docker-compose.yml
 ```
 
----
+## Config Strategy
 
-# 🧠 Application Flow
+### Should constants be inside `config/`?
 
-Client
+Short answer: **No**.
 
-HTTP Request
-↓
-Routes
-↓
-Handlers (Controllers)
-↓
-Repositories
-↓
-Database
+- `config/` should hold runtime/environment configuration (ports, DB host, secrets).
+- `constants/` should hold compile-time static values (messages, error codes).
 
-Each layer has a single responsibility.
+This separation is correct and recommended.
 
----
+### Environment-based config
 
-# 📋 Prerequisites
+- `CONFIG_PATH` env var chooses config file.
+- If not set, app uses `config/config.yaml`.
 
-- Go 1.21+
-- PostgreSQL 14+
-- Basic understanding of REST APIs
+Example:
 
----
-
-# 🐘 Database Setup
-
-Create database:
-
-```sql
-CREATE DATABASE todo_db;
+```bash
+CONFIG_PATH=config/config.docker.yaml go run ./cmd/api
 ```
 
-Create table:
+## Logging
 
-```sql
-CREATE TABLE todos (
-    id SERIAL PRIMARY KEY,
-    title TEXT NOT NULL,
-    description TEXT,
-    completed BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+- Zap logger is initialized inside `internal/app/app.go`.
+- Request logs are emitted from `middleware/setup.go` with fields:
+  - request id
+  - method
+  - URI
+  - status
+  - latency
+
+## Centralized Error Handling
+
+- Global handler: `internal/middleware/error.go`
+- Wired during app bootstrap (`internal/app/app.go`) via:
+
+```go
+e.HTTPErrorHandler = middleware.ErrorHandler
 ```
 
----
+This gives one consistent error response shape for uncaught handler errors.
 
-# ⚙️ Configuration (config/config.yaml)
+## JWT Authentication
+
+- Middleware: `internal/middleware/jwt.go`
+- Protected routes are attached in `internal/routes/routes.go`.
+
+## Database Migrations
+
+The project uses `golang-migrate` naming (`*.up.sql`, `*.down.sql`).
+
+Run locally:
+
+```bash
+migrate -path migrations -database "postgres://postgres:password@localhost:5432/todo_app?sslmode=disable" up
+```
+
+Rollback one step:
+
+```bash
+migrate -path migrations -database "postgres://postgres:password@localhost:5432/todo_app?sslmode=disable" down 1
+```
+
+## ORM Support
+
+Primary runtime path is still `database/sql` repositories.
+
+Optional GORM bootstrap is available:
+
+- File: `internal/database/gorm.go`
+- Config:
 
 ```yaml
-server:
-  port: "8080"
-
-database:
-  host: "localhost"
-  port: "5432"
-  user: "postgres"
-  password: "postgres"
-  dbname: "todo_db"
-  sslmode: "disable"
+orm:
+  enabled: false
+  auto_migrate: false
 ```
 
----
+When enabled, app creates a GORM connection and can auto-migrate models.
 
-# 🚀 Running the Project
+## Local Run
 
 ```bash
-git clone https://github.com/manish-npx/todo-go-echo.git
-cd todo-go-echo
-
-go mod download
-go run cmd/server/main.go
+go mod tidy
+go test ./...
+go run ./cmd/api
 ```
 
-Server runs on:
+API base URL: `http://localhost:8080/api/v1`
 
-```
-http://localhost:8080
-```
+## Docker Run
 
----
+`docker-compose.yml` includes 3 services:
 
-# 📌 API Endpoints
+- `db` (PostgreSQL)
+- `migrate` (runs schema migrations)
+- `api` (Echo server)
 
-| Method | Endpoint   | Description     |
-| ------ | ---------- | --------------- |
-| GET    | /todos     | Get all todos   |
-| GET    | /todos/:id | Get single todo |
-| POST   | /todos     | Create new todo |
-| PUT    | /todos/:id | Update todo     |
-| DELETE | /todos/:id | Delete todo     |
-
----
-
-# 🧪 API Testing Examples
-
-## Get all todos
+Run:
 
 ```bash
-curl http://localhost:8080/todos
+docker compose up --build
 ```
 
-## Create a todo
+## Notes
 
-```bash
-curl -X POST http://localhost:8080/todos \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Learn Go", "description": "Study structs and interfaces"}'
-```
+- Graceful shutdown handles `SIGINT` and `SIGTERM`.
+- Server timeout is configurable in `config`.
+- Input validation is enforced with `go-playground/validator` tags.
 
-## Update a todo
+## Simple Structure View
 
-```bash
-curl -X PUT http://localhost:8080/todos/1 \
-  -H "Content-Type: application/json" \
-  -d '{"completed": true}'
-```
+If you want a simpler mental model, focus on these folders only:
 
-## Delete a todo
-
-```bash
-curl -X DELETE http://localhost:8080/todos/1
-```
-
----
-
-# 🧩 Struct Example
-
-```go
-type Todo struct {
-    ID        int       `json:"id"`
-    Title     string    `json:"title"`
-    Completed bool      `json:"completed"`
-}
-```
-
----
-
-# 🧩 Interface Example
-
-```go
-type TodoRepository interface {
-    Create(todo *Todo) error
-    GetAll() ([]Todo, error)
-}
-```
-
-Interfaces allow flexible and testable design.
-
----
-
-# 🏗 Why Use internal/ Folder?
-
-Go convention:
-Packages inside `internal/` cannot be imported outside this project.
-It protects your private application logic.
-
----
-
-# 🔮 Future Improvements
-
-- JWT Authentication
-- Middleware (Logger, Recovery)
-- Docker support
-- Unit testing
-- Service layer
-- Pagination
-- Swagger documentation
-
----
-
-# 👨‍💻 Author
-
-Manish
-
----
-
-# ⭐ If this project helped you
-
-Give it a star on GitHub.
+- `internal/app` : startup and dependency wiring
+- `internal/handlers` : HTTP layer
+- `internal/service` : business logic
+- `internal/repository` : database queries
+- `internal/models` : domain models
+- `internal/middleware` : auth/logging/error handling
+- `internal/config` : runtime configuration

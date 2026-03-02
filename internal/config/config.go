@@ -27,10 +27,17 @@ type JWTConfig struct {
 	Secret string `yaml:"secret"`
 }
 
+// ORMConfig controls optional GORM setup.
+type ORMConfig struct {
+	Enabled     bool `yaml:"enabled"`
+	AutoMigrate bool `yaml:"auto_migrate"`
+}
+
 // Config represents the entire application configuration
 type Config struct {
 	Server   ServerConfig   `yaml:"server"`
 	Database DatabaseConfig `yaml:"database"`
+	ORM      ORMConfig      `yaml:"orm"`
 	JWT      JWTConfig      `yaml:"jwt"`
 }
 

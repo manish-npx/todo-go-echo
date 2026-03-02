@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS blogs;
+DROP TABLE IF EXISTS categories;
