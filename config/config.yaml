@@ -11,8 +11,8 @@ database:
   sslmode: disable
 
 orm:
-  enabled: false
-  auto_migrate: false
+  enabled: true
+  auto_migrate: true
 
 jwt:
   secret: "super-secret-key-change-this"

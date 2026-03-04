@@ -6,11 +6,8 @@ import (
 	"time"
 
 	"github.com/manish-npx/todo-go-echo/internal/models"
+	"gorm.io/gorm"
 )
-
-type blogRepository struct {
-	db *sql.DB
-}
 
 type BlogRepository interface {
 	GetAll(ctx context.Context) ([]models.Blog, error)
@@ -25,358 +22,135 @@ type BlogRepository interface {
 	Search(ctx context.Context, query string) ([]models.Blog, error)
 }
 
-// NewBlogRepository creates a new blog repository
-func NewBlogRepository(db *sql.DB) BlogRepository {
+type blogRepository struct {
+	db *gorm.DB
+}
+
+func NewBlogRepository(db *gorm.DB) BlogRepository {
 	return &blogRepository{db: db}
 }
 
-// GetAll retrieves all blogs
 func (r *blogRepository) GetAll(ctx context.Context) ([]models.Blog, error) {
-	query := `SELECT id, title, content, author, category_id, status, views, created_at, updated_at, published_at
-			  FROM blogs ORDER BY created_at DESC`
-
-	rows, err := r.db.QueryContext(ctx, query)
+	var blogs []models.Blog
+	err := r.db.WithContext(ctx).Order("created_at DESC").Find(&blogs).Error
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var blogs []models.Blog
-	for rows.Next() {
-		var blog models.Blog
-		var categoryID sql.NullInt64
-
-		err := rows.Scan(
-			&blog.ID,
-			&blog.Title,
-			&blog.Content,
-			&blog.Author,
-			&categoryID,
-			&blog.Status,
-			&blog.Views,
-			&blog.CreatedAt,
-			&blog.UpdatedAt,
-			&blog.PublishedAt,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		if categoryID.Valid {
-			id := int(categoryID.Int64)
-			blog.CategoryID = &id
-		}
-
-		blogs = append(blogs, blog)
-	}
-
 	return blogs, nil
 }
 
-// GetByID retrieves a blog by ID
 func (r *blogRepository) GetByID(ctx context.Context, id int) (*models.Blog, error) {
-	query := `SELECT id, title, content, author, category_id, status, views, created_at, updated_at, published_at
-			  FROM blogs WHERE id = $1`
-
 	var blog models.Blog
-	var categoryID sql.NullInt64
-
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&blog.ID,
-		&blog.Title,
-		&blog.Content,
-		&blog.Author,
-		&categoryID,
-		&blog.Status,
-		&blog.Views,
-		&blog.CreatedAt,
-		&blog.UpdatedAt,
-		&blog.PublishedAt,
-	)
-
-	if err == sql.ErrNoRows {
+	err := r.db.WithContext(ctx).Where("id = ?", id).First(&blog).Error
+	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-
-	if categoryID.Valid {
-		id := int(categoryID.Int64)
-		blog.CategoryID = &id
-	}
-
 	return &blog, nil
 }
 
-// GetByCategory retrieves blogs by category
 func (r *blogRepository) GetByCategory(ctx context.Context, categoryID int) ([]models.Blog, error) {
-	query := `SELECT id, title, content, author, category_id, status, views, created_at, updated_at, published_at
-			  FROM blogs WHERE category_id = $1 ORDER BY created_at DESC`
-
-	rows, err := r.db.QueryContext(ctx, query, categoryID)
+	var blogs []models.Blog
+	err := r.db.WithContext(ctx).
+		Where("category_id = ?", categoryID).
+		Order("created_at DESC").
+		Find(&blogs).Error
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var blogs []models.Blog
-	for rows.Next() {
-		var blog models.Blog
-		var catID sql.NullInt64
-
-		err := rows.Scan(
-			&blog.ID,
-			&blog.Title,
-			&blog.Content,
-			&blog.Author,
-			&catID,
-			&blog.Status,
-			&blog.Views,
-			&blog.CreatedAt,
-			&blog.UpdatedAt,
-			&blog.PublishedAt,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		if catID.Valid {
-			id := int(catID.Int64)
-			blog.CategoryID = &id
-		}
-
-		blogs = append(blogs, blog)
-	}
-
 	return blogs, nil
 }
 
-// GetPublished retrieves published blogs.
 func (r *blogRepository) GetPublished(ctx context.Context) ([]models.Blog, error) {
-	query := `SELECT id, title, content, author, category_id, status, views, created_at, updated_at, published_at
-			  FROM blogs WHERE status = 'published' ORDER BY published_at DESC`
-
-	rows, err := r.db.QueryContext(ctx, query)
+	var blogs []models.Blog
+	err := r.db.WithContext(ctx).
+		Where("status = ?", models.StatusPublished).
+		Order("published_at DESC").
+		Find(&blogs).Error
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var blogs []models.Blog
-	for rows.Next() {
-		var blog models.Blog
-		var categoryID sql.NullInt64
-
-		err := rows.Scan(
-			&blog.ID,
-			&blog.Title,
-			&blog.Content,
-			&blog.Author,
-			&categoryID,
-			&blog.Status,
-			&blog.Views,
-			&blog.CreatedAt,
-			&blog.UpdatedAt,
-			&blog.PublishedAt,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		if categoryID.Valid {
-			id := int(categoryID.Int64)
-			blog.CategoryID = &id
-		}
-
-		blogs = append(blogs, blog)
-	}
-
 	return blogs, nil
 }
 
-// GetByAuthor retrieves blogs by author
 func (r *blogRepository) GetByAuthor(ctx context.Context, author string) ([]models.Blog, error) {
-	query := `SELECT id, title, content, author, category_id, status, views, created_at, updated_at, published_at
-			  FROM blogs WHERE author ILIKE $1 ORDER BY created_at DESC`
-
-	rows, err := r.db.QueryContext(ctx, query, "%"+author+"%")
+	var blogs []models.Blog
+	err := r.db.WithContext(ctx).
+		Where("author ILIKE ?", "%"+author+"%").
+		Order("created_at DESC").
+		Find(&blogs).Error
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var blogs []models.Blog
-	for rows.Next() {
-		var blog models.Blog
-		var categoryID sql.NullInt64
-
-		err := rows.Scan(
-			&blog.ID,
-			&blog.Title,
-			&blog.Content,
-			&blog.Author,
-			&categoryID,
-			&blog.Status,
-			&blog.Views,
-			&blog.CreatedAt,
-			&blog.UpdatedAt,
-			&blog.PublishedAt,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		if categoryID.Valid {
-			id := int(categoryID.Int64)
-			blog.CategoryID = &id
-		}
-
-		blogs = append(blogs, blog)
-	}
-
 	return blogs, nil
 }
 
-// Create inserts a new blog
 func (r *blogRepository) Create(ctx context.Context, blog *models.Blog) error {
-	query := `INSERT INTO blogs (title, content, author, category_id, status, created_at, updated_at, published_at)
-			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, views`
-
 	now := time.Now()
 	blog.CreatedAt = now
 	blog.UpdatedAt = now
 	blog.Views = 0
-
 	if blog.Status == models.StatusPublished && blog.PublishedAt == nil {
 		blog.PublishedAt = &now
 	}
-
-	err := r.db.QueryRowContext(ctx, query,
-		blog.Title,
-		blog.Content,
-		blog.Author,
-		blog.CategoryID,
-		blog.Status,
-		blog.CreatedAt,
-		blog.UpdatedAt,
-		blog.PublishedAt,
-	).Scan(&blog.ID, &blog.Views)
-
-	return err
+	return r.db.WithContext(ctx).Create(blog).Error
 }
 
-// Update modifies an existing blog
 func (r *blogRepository) Update(ctx context.Context, blog *models.Blog) error {
 	blog.UpdatedAt = time.Now()
-
 	if blog.Status == models.StatusPublished && blog.PublishedAt == nil {
 		now := time.Now()
 		blog.PublishedAt = &now
 	}
 
-	query := `UPDATE blogs
-			  SET title = $1, content = $2, author = $3, category_id = $4,
-				  status = $5, updated_at = $6, published_at = $7
-			  WHERE id = $8`
-
-	result, err := r.db.ExecContext(ctx, query,
-		blog.Title,
-		blog.Content,
-		blog.Author,
-		blog.CategoryID,
-		blog.Status,
-		blog.UpdatedAt,
-		blog.PublishedAt,
-		blog.ID,
-	)
-
-	if err != nil {
-		return err
+	result := r.db.WithContext(ctx).Model(&models.Blog{}).
+		Where("id = ?", blog.ID).
+		Updates(map[string]any{
+			"title":        blog.Title,
+			"content":      blog.Content,
+			"author":       blog.Author,
+			"category_id":  blog.CategoryID,
+			"status":       blog.Status,
+			"updated_at":   blog.UpdatedAt,
+			"published_at": blog.PublishedAt,
+		})
+	if result.Error != nil {
+		return result.Error
 	}
-
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rows == 0 {
+	if result.RowsAffected == 0 {
 		return sql.ErrNoRows
 	}
-
 	return nil
 }
 
-// Delete removes a blog
 func (r *blogRepository) Delete(ctx context.Context, id int) error {
-	query := `DELETE FROM blogs WHERE id = $1`
-
-	result, err := r.db.ExecContext(ctx, query, id)
-	if err != nil {
-		return err
+	result := r.db.WithContext(ctx).Where("id = ?", id).Delete(&models.Blog{})
+	if result.Error != nil {
+		return result.Error
 	}
-
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rows == 0 {
+	if result.RowsAffected == 0 {
 		return sql.ErrNoRows
 	}
-
 	return nil
 }
 
-// IncrementViews increases the view count
 func (r *blogRepository) IncrementViews(ctx context.Context, id int) error {
-	query := `UPDATE blogs SET views = views + 1 WHERE id = $1`
-	_, err := r.db.ExecContext(ctx, query, id)
-	return err
+	return r.db.WithContext(ctx).Model(&models.Blog{}).
+		Where("id = ?", id).
+		Update("views", gorm.Expr("views + 1")).Error
 }
 
-// Search searches blogs by title or content
 func (r *blogRepository) Search(ctx context.Context, searchTerm string) ([]models.Blog, error) {
-	query := `SELECT id, title, content, author, category_id, status, views, created_at, updated_at, published_at
-			  FROM blogs
-			  WHERE title ILIKE $1 OR content ILIKE $1
-			  ORDER BY created_at DESC`
-
+	var blogs []models.Blog
 	pattern := "%" + searchTerm + "%"
-	rows, err := r.db.QueryContext(ctx, query, pattern)
+	err := r.db.WithContext(ctx).
+		Where("title ILIKE ? OR content ILIKE ?", pattern, pattern).
+		Order("created_at DESC").
+		Find(&blogs).Error
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var blogs []models.Blog
-	for rows.Next() {
-		var blog models.Blog
-		var categoryID sql.NullInt64
-
-		err := rows.Scan(
-			&blog.ID,
-			&blog.Title,
-			&blog.Content,
-			&blog.Author,
-			&categoryID,
-			&blog.Status,
-			&blog.Views,
-			&blog.CreatedAt,
-			&blog.UpdatedAt,
-			&blog.PublishedAt,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		if categoryID.Valid {
-			id := int(categoryID.Int64)
-			blog.CategoryID = &id
-		}
-
-		blogs = append(blogs, blog)
-	}
-
 	return blogs, nil
 }

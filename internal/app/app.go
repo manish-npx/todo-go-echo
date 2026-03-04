@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"net/http"
 	"os"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	_ "github.com/lib/pq"
 	"github.com/manish-npx/todo-go-echo/internal/config"
 	"github.com/manish-npx/todo-go-echo/internal/database"
 	"github.com/manish-npx/todo-go-echo/internal/handlers"
@@ -21,13 +19,14 @@ import (
 	"github.com/manish-npx/todo-go-echo/internal/routes"
 	"github.com/manish-npx/todo-go-echo/internal/service"
 	"github.com/manish-npx/todo-go-echo/internal/validator"
+	"gorm.io/gorm"
 )
 
 // App keeps runtime dependencies in one place.
 type App struct {
 	Config *config.Config
 	Echo   *echo.Echo
-	DB     *sql.DB
+	GormDB *gorm.DB
 }
 
 // New builds the full application graph (config, db, handlers, routes, middleware).
@@ -41,33 +40,24 @@ func New(configPath string) (*App, error) {
 		return nil, fmt.Errorf("config load failed: %w", err)
 	}
 
-	db, err := database.NewPostgresConnection(cfg.Database)
+	gormDB, err := database.NewGormConnection(cfg.Database, cfg.ORM)
 	if err != nil {
-		return nil, fmt.Errorf("database connection failed: %w", err)
+		return nil, fmt.Errorf("gorm bootstrap failed: %w", err)
 	}
+	todoRepo := repository.NewTodoRepository(gormDB)
+	categoryRepo := repository.NewCategoryRepository(gormDB)
+	blogRepo := repository.NewBlogRepository(gormDB)
+	userRepo := repository.NewUserRepository(gormDB)
 
-	// Optional ORM bootstrap. CRUD paths still use sql repositories.
-	if cfg.ORM.Enabled {
-		if _, err := database.NewGormConnection(cfg.Database, cfg.ORM); err != nil {
-			_ = db.Close()
-			return nil, fmt.Errorf("gorm bootstrap failed: %w", err)
-		}
-	}
-
-	// Dependency injection chain
-	todoRepo := repository.NewTodoRepository(db)
 	todoService := service.NewTodoService(todoRepo)
 	todoHandler := handlers.NewTodoHandler(todoService)
 
-	categoryRepo := repository.NewCategoryRepository(db)
 	categoryService := service.NewCategoryService(categoryRepo)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
 
-	blogRepo := repository.NewBlogRepository(db)
 	blogService := service.NewBlogService(blogRepo, categoryRepo)
 	blogHandler := handlers.NewBlogHandler(blogService)
 
-	userRepo := repository.NewUserRepository(db)
 	userService := service.NewUserService(userRepo, cfg.JWT.Secret)
 	userHandler := handlers.NewUserHandler(userService)
 
@@ -89,7 +79,7 @@ func New(configPath string) (*App, error) {
 	return &App{
 		Config: cfg,
 		Echo:   e,
-		DB:     db,
+		GormDB: gormDB,
 	}, nil
 }
 
@@ -120,8 +110,12 @@ func (a *App) Run() {
 
 // Close releases app resources.
 func (a *App) Close() {
-	if a.DB != nil {
-		_ = a.DB.Close()
+	if a.GormDB != nil {
+		sqlDB, err := a.GormDB.DB()
+		if err == nil {
+			_ = sqlDB.Close()
+		}
 	}
+
 	logger.Sync()
 }
