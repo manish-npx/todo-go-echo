@@ -5,7 +5,7 @@ import "time"
 // Category represents a blog category
 type Category struct {
 	ID          int       `json:"id" db:"id"`
-	Name        string    `json:"name" db:"name"`
+	Name        string    `json:"name" db:"name" gorm:"uniqueIndex:uni_categories_name"`
 	Description string    `json:"description" db:"description"`
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 }

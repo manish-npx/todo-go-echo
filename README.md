@@ -188,6 +188,7 @@ orm:
 ```
 
 When enabled, app creates a GORM connection and can auto-migrate models.
+For simpler, safer schema changes in teams, prefer SQL migrations in `migrations/`.
 
 ## Local Run
 

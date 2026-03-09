@@ -20,7 +20,9 @@ const (
 	MsgBlogFetched   = "Blog fetched successfully"
 	MsgBlogsFetched  = "Blogs fetched successfully"
 
-	MsgUserRegistered = "User registered successfully"
-	MsgUsersFetched   = "Users fetched successfully"
-	MsgLoginSuccess   = "Login successful"
+	MsgUserRegistered     = "User registered successfully"
+	MsgUserCreated        = "User created successfully"
+	MsgUserProfileFetched = "User profile fetched successfully"
+	MsgUsersFetched       = "Users fetched successfully"
+	MsgLoginSuccess       = "Login successful"
 )

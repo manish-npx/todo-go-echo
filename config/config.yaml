@@ -12,7 +12,7 @@ database:
 
 orm:
   enabled: true
-  auto_migrate: true
+  auto_migrate: false
 
 jwt:
   secret: "super-secret-key-change-this"

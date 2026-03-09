@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"github.com/manish-npx/todo-go-echo/internal/models"
 	"gorm.io/gorm"
@@ -42,7 +43,7 @@ func (r *userRepository) GetByEmail(email string) (*models.User, error) {
 func (r *userRepository) GetByID(id int) (*models.User, error) {
 	var user models.User
 	err := r.db.
-		Select("id", "name", "email", "mobile", "created_at").
+		Select("id", "name", "email", "mobile", "created_at", "updated_at").
 		Where("id = ?", id).
 		First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -57,10 +58,11 @@ func (r *userRepository) GetByID(id int) (*models.User, error) {
 func (r *userRepository) GetAll() ([]models.User, error) {
 	var users []models.User
 	err := r.db.
-		Select("id", "name", "email", "mobile", "created_at").
+		Select("id", "name", "email", "mobile", "created_at", "updated_at").
 		Find(&users).Error
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("users =====>", users)
 	return users, nil
 }

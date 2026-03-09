@@ -58,8 +58,14 @@ func RegisterRoutes(router *echo.Echo, routeHandlers RouteHandlers) {
 	auth.POST("/register", routeHandlers.UserHandler.Register)
 	auth.POST("/login", routeHandlers.UserHandler.Login)
 
+	// Backward-compatible aliases without /auth prefix.
+	api.POST("/register", routeHandlers.UserHandler.Register)
+	api.POST("/login", routeHandlers.UserHandler.Login)
+
 	// Users (protected)
 	users := api.Group("/users")
 	users.Use(middleware.JWTMiddleware(routeHandlers.JWTSecret))
+	users.POST("", routeHandlers.UserHandler.CreateUser)
+	users.GET("/profile", routeHandlers.UserHandler.Profile)
 	users.GET("", routeHandlers.UserHandler.GetUsers)
 }
