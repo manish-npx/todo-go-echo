@@ -161,6 +161,16 @@
   "workbench.settings.applyToAllProfiles": [],
   "cSpell.enabled": false,
   "git.autofetch": true,
+  "files.associations": {
+    ".env": "dotenv",
+    ".env.*": "dotenv"
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml"
+  },
+  "[dotenv]": {
+    "editor.defaultFormatter": "mikestead.dotenv"
+  },
   "[toml]": {
     "editor.defaultFormatter": "tamasfe.even-better-toml"
   }

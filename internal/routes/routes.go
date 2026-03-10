@@ -5,6 +5,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/manish-npx/todo-go-echo/internal/dto"
 	"github.com/manish-npx/todo-go-echo/internal/handlers"
 	"github.com/manish-npx/todo-go-echo/internal/middleware"
 )
@@ -22,9 +23,7 @@ func RegisterRoutes(router *echo.Echo, routeHandlers RouteHandlers) {
 
 	// Health
 	api.GET("/health", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{
-			"status": "OK",
-		})
+		return c.JSON(http.StatusOK, dto.SuccessResponse("OK", nil))
 	})
 
 	// Todos
