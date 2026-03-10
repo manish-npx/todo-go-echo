@@ -29,83 +29,68 @@ Design rules used:
 
 ## Folder Structure
 
-```text
+```GO
 todo-go-echo/
-  cmd/
-    api/
-      main.go                     # App bootstrap + DI wiring
+├── cmd/
+│   └── api/
+│       └── main.go                     # App bootstrap + DI wiring
+├── config/
+│   ├── config.yaml                      # Local config
+│   └── config.docker.yaml                # Docker config
+├── migrations/
+│   ├── 001_create_users.up.sql
+│   ├── 001_create_users.down.sql
+│   ├── 002_create_categories_and_blogs.up.sql
+│   ├── 002_create_categories_and_blogs.down.sql
+│   ├── 003_create_todos.up.sql
+│   └── 003_create_todos.down.sql
+├── internal/
+│   ├── app/
+│   │   └── app.go                       # Wiring + server lifecycle
+│   ├── config/
+│   │   └── config.go                     # YAML config structs + loader
+│   ├── constants/
+│   │   ├── errors.go                     # Shared error messages/codes
+│   │   └── messages.go                   # Shared success messages
+│   ├── database/
+│   │   ├── postgres.go                   # sql.DB connection (primary)
+│   │   └── gorm.go                       # Optional GORM bootstrap
+│   ├── dto/
+│   │   ├── response.go                   # Standard API response wrapper
+│   │   └── error.go                       # DTO types for validation errors
+│   ├── handlers/
+│   │   ├── user_handler.go
+│   │   ├── todo_handler.go
+│   │   ├── category_handler.go
+│   │   └── blog_handler.go
+│   ├── logger/
+│   │   └── logger.go                      # Zap singleton logger
+│   ├── middleware/
+│   │   ├── setup.go                       # Recover, CORS, timeout, logging
+│   │   ├── jwt.go                          # JWT auth middleware
+│   │   └── error.go                        # Global HTTP error handler
+│   ├── models/
+│   │   ├── user.go
+│   │   ├── todo.go
+│   │   ├── category.go
+│   │   └── blog.go
+│   ├── repository/
+│   │   ├── user_repository.go
+│   │   ├── todo_repository.go
+│   │   ├── category_repository.go
+│   │   └── blog_repository.go
+│   ├── routes/
+│   │   └── routes.go                      # API route groups and middleware
+│   ├── service/
+│   │   ├── user_service.go
+│   │   ├── todo_service.go
+│   │   ├── category_service.go
+│   │   └── blog_service.go
+│   └── validator/
+│       └── validator.go                   # Echo validator adapter
+├── Dockerfile
+└── docker-compose.yml
 
-  config/
-    config.yaml                  # Local config
-    config.docker.yaml           # Docker config
-
-  migrations/
-    001_create_users.up.sql
-    001_create_users.down.sql
-    002_create_categories_and_blogs.up.sql
-    002_create_categories_and_blogs.down.sql
-    003_create_todos.up.sql
-    003_create_todos.down.sql
-
-  internal/
-    app/
-      app.go                     # Single setup place: wiring + server lifecycle
-
-    config/
-      config.go                  # YAML config structs + loader
-
-    constants/
-      errors.go                  # Shared error messages/codes
-      messages.go                # Shared success messages
-
-    database/
-      postgres.go                # sql.DB connection (primary)
-      gorm.go                    # Optional GORM bootstrap
-
-    dto/
-      response.go                # Standard API response wrapper
-      error.go                   # DTO types for validation errors
-
-    handlers/
-      user_handler.go
-      todo_handler.go
-      category_handler.go
-      blog_handler.go
-
-    logger/
-      logger.go                  # Zap singleton logger
-
-    middleware/
-      setup.go                   # Recover, CORS, timeout, request logging
-      jwt.go                     # JWT auth middleware
-      error.go                   # Global HTTP error handler
-
-    models/
-      user.go
-      todo.go
-      category.go
-      blog.go
-
-    repository/
-      user_repository.go
-      todo_repository.go
-      category_repository.go
-      blog_repository.go
-
-    routes/
-      routes.go                  # API route groups and middleware attachment
-
-    service/
-      user_service.go
-      todo_service.go
-      category_service.go
-      blog_service.go
-
-    validator/
-      validator.go               # Echo validator adapter
-
-  Dockerfile
-  docker-compose.yml
 ```
 
 ## Config Strategy
@@ -128,6 +113,32 @@ Example:
 
 ```bash
 CONFIG_PATH=config/config.docker.yaml go run ./cmd/api
+
+# Example config.yaml
+server:
+  port: 8080
+  timeout: 30s
+
+database:
+  host: localhost
+  port: 5432
+  user: postgres
+  password: password
+  dbname: todo_app
+  sslmode: disable
+
+jwt:
+  secret: your-secret-key
+  expiry: 24h
+
+logger:
+  level: info
+  encoding: json   # or "console"
+
+orm:
+  enabled: false
+  auto_migrate: false
+
 ```
 
 ## Logging
